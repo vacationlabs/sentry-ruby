@@ -50,22 +50,6 @@ if RUBY_VERSION > '2.0'
         Raven::SidekiqErrorHandler.new.call(exception, context)
       end
     end
-
-    it "filters out ActiveJob keys", :rails => true do
-      exception = build_exception
-      aj_context = context
-      aj_context["_aj_globalid"] = GlobalID.new('gid://app/model/id')
-      expected_context = aj_context.dup
-      expected_context.delete("_aj_globalid")
-      expected_context["_globalid"] = "gid://app/model/id"
-      expected_options = {
-        :message => exception.message,
-        :extra => { :sidekiq => expected_context }
-      }
-      expect(Raven).to receive(:capture_exception).with(exception, expected_options)
-
-      Raven::SidekiqErrorHandler.new.call(exception, aj_context)
-    end
   end
 
   class HappyWorker

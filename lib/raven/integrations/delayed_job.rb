@@ -1,8 +1,12 @@
 require 'delayed_job'
 
+require 'raven/context_filter'
+
 module Delayed
   module Plugins
     class Raven < ::Delayed::Plugin
+      include Raven::ContextFilter
+
       callbacks do |lifecycle|
         lifecycle.around(:invoke_job) do |job, *args, &block|
           begin
@@ -30,7 +34,7 @@ module Delayed
             extra[:handler] = job.handler[0...1000] if job.handler
 
             if job.respond_to?('payload_object') && job.payload_object.respond_to?('job_data')
-              extra[:active_job] = job.payload_object.job_data
+              extra[:active_job] = Raven::ContextFilter.filter(job.payload_object.job_data)
             end
             ::Raven.capture_exception(exception,
                                       :logger  => 'delayed_job',
