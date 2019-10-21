@@ -1,4 +1,5 @@
 require "spec_helper"
+require "globalid"
 
 require "raven/context_filter"
 
