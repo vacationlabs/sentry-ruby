@@ -1,12 +1,11 @@
 require "spec_helper"
-require "globalid"
 
 require "raven/context_filter"
 
 RSpec.describe Raven::ContextFilter do
   context "filters out ActiveJob keys from context" do
     let(:context) do
-      { :_aj_globalid => GlobalID.new("gid://app/model/id"), :key => "value" }
+      { :_aj_globalid => "gid://app/model/id", :key => "value" }
     end
     let(:expected_context) do
       { :key => "value" }
@@ -22,7 +21,7 @@ RSpec.describe Raven::ContextFilter do
   context "filters out ActiveJob keys from nested context" do
     let(:context) do
       {
-        :_aj_globalid => GlobalID.new("gid://app/model/id"),
+        :_aj_globalid => "gid://app/model/id",
         :arguments => { "key" => "value", "_aj_symbol_keys" => ["key"] }
       }
     end
