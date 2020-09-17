@@ -1,8 +1,8 @@
 require "spec_helper"
 
-require "raven/context_filter"
+require "raven/utils/context_filter"
 
-RSpec.describe Raven::ContextFilter do
+RSpec.describe Raven::Utils::ContextFilter do
   context "filters out ActiveJob keys from context" do
     let(:context) do
       { :_aj_globalid => "gid://app/model/id", :key => "value" }
