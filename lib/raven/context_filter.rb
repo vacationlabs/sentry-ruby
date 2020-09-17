@@ -1,7 +1,7 @@
 module Raven
   module ContextFilter
     class << self
-      ACTIVEJOB_RESERVED_PREFIX = "_aj_".freeze
+      ACTIVEJOB_RESERVED_PREFIX_REGEX = /^_aj_/.freeze
       HAS_GLOBALID = const_defined?('GlobalID')
 
       # Once an ActiveJob is queued, ActiveRecord references get serialized into
@@ -15,7 +15,7 @@ module Raven
         when Array
           context.map { |arg| filter_context(arg) }
         when Hash
-          Hash[context.map { |key, value| filter_context_hash(key, value) }]
+          Hash[context.map { |key, value| filter_context_hash(key.to_s, value) }]
         else
           format_globalid(context)
         end
@@ -24,7 +24,7 @@ module Raven
       private
 
       def filter_context_hash(key, value)
-        (key = key[3..-1]) if key[0..3] == ACTIVEJOB_RESERVED_PREFIX
+        key = key.sub(ACTIVEJOB_RESERVED_PREFIX_REGEX, "") if key.match?(ACTIVEJOB_RESERVED_PREFIX_REGEX)
         [key, filter_context(value)]
       end
 

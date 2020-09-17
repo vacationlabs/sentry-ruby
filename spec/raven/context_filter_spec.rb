@@ -8,7 +8,7 @@ RSpec.describe Raven::ContextFilter do
       { :_aj_globalid => "gid://app/model/id", :key => "value" }
     end
     let(:expected_context) do
-      { "_globalid" => "gid://app/model/id", :key => "value" }
+      { "globalid" => "gid://app/model/id", "key" => "value" }
     end
 
     it "removes reserved keys" do
@@ -27,8 +27,8 @@ RSpec.describe Raven::ContextFilter do
     end
     let(:expected_context) do
       {
-        "_globalid" => "gid://app/model/id",
-        :arguments => { "key" => "value", "_symbol_keys" => ["key"] }
+        "globalid" => "gid://app/model/id",
+        "arguments" => { "key" => "value", "symbol_keys" => ["key"] }
       }
     end
 
