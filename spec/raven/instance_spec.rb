@@ -2,8 +2,9 @@ require 'spec_helper'
 require 'raven/instance'
 
 RSpec.describe Raven::Instance do
-  let(:event) { Raven::Event.new(:id => "event_id") }
+  let(:event) { Raven::Event.new(id: "event_id", configuration: configuration, context: Raven.context, breadcrumbs: Raven.breadcrumbs) }
   let(:options) { { :key => "value" } }
+  let(:event_options) { options.merge(:context => subject.context, :configuration => configuration, breadcrumbs: Raven.breadcrumbs) }
   let(:context) { nil }
   let(:configuration) do
     config = Raven::Configuration.new
@@ -37,7 +38,7 @@ RSpec.describe Raven::Instance do
   describe '#capture_type' do
     describe 'as #capture_message' do
       before do
-        expect(Raven::Event).to receive(:from_message).with(message, options)
+        expect(Raven::Event).to receive(:from_message).with(message, event_options)
         expect(subject).to receive(:send_event).with(event, :exception => nil, :message => message)
       end
       let(:message) { "Test message" }
@@ -62,7 +63,7 @@ RSpec.describe Raven::Instance do
       end
 
       it 'sends the result of Event.capture_type' do
-        expect(Raven::Event).to receive(:from_message).with(message, options)
+        expect(Raven::Event).to receive(:from_message).with(message, event_options)
         expect(subject).not_to receive(:send_event).with(event)
 
         expect(subject.configuration.async).to receive(:call).with(event.to_json_compatible)
@@ -79,14 +80,14 @@ RSpec.describe Raven::Instance do
       let(:exception) { build_exception }
 
       it 'sends the result of Event.capture_exception' do
-        expect(Raven::Event).to receive(:from_exception).with(exception, options)
+        expect(Raven::Event).to receive(:from_exception).with(exception, event_options)
         expect(subject).to receive(:send_event).with(event, :exception => exception, :message => nil)
 
         subject.capture_exception(exception, options)
       end
 
       it 'has an alias' do
-        expect(Raven::Event).to receive(:from_exception).with(exception, options)
+        expect(Raven::Event).to receive(:from_exception).with(exception, event_options)
         expect(subject).to receive(:send_event).with(event, :exception => exception, :message => nil)
 
         subject.capture_exception(exception, options)
@@ -105,7 +106,7 @@ RSpec.describe Raven::Instance do
         end
 
         it 'sends the result of Event.capture_exception' do
-          expect(Raven::Event).to receive(:from_exception).with(exception, options)
+          expect(Raven::Event).to receive(:from_exception).with(exception, event_options)
           expect(subject).not_to receive(:send_event).with(event)
 
           expect(subject.configuration.async).to receive(:call).with(event.to_json_compatible)
@@ -127,7 +128,7 @@ RSpec.describe Raven::Instance do
         end
 
         it 'sends the result of Event.capture_exception via fallback' do
-          expect(Raven::Event).to receive(:from_exception).with(exception, options)
+          expect(Raven::Event).to receive(:from_exception).with(exception, event_options)
 
           expect(subject.configuration.async).to receive(:call).with(event.to_json_compatible)
           subject.capture_exception(exception, options)
@@ -193,29 +194,42 @@ RSpec.describe Raven::Instance do
     end
 
     let(:not_ready_message) do
-      "Raven #{Raven::VERSION} configured not to capture errors."
+      "Raven #{Raven::VERSION} configured not to capture errors: DSN not set"
     end
 
-    it 'logs a ready message when configured' do
-      subject.configuration.silence_ready = false
+    context "when current environment is included in environments" do
+      before do
+        subject.configuration.silence_ready = false
+        subject.configuration.environments = ["default"]
+      end
 
-      expect(subject.logger).to receive(:info).with(ready_message)
-      subject.report_status
+      it 'logs a ready message when configured' do
+        expect(subject.logger).to receive(:info).with(ready_message)
+        subject.report_status
+      end
+
+      it 'logs a warning message when not properly configured' do
+        # dsn not set
+        subject.configuration = Raven::Configuration.new
+
+        expect(subject.logger).to receive(:info).with(not_ready_message)
+        subject.report_status
+      end
+
+      it 'logs nothing if "silence_ready" configuration is true' do
+        subject.configuration.silence_ready = true
+        expect(subject.logger).not_to receive(:info)
+        subject.report_status
+      end
     end
 
-    it 'logs not ready message if the config does not send in current environment' do
-      subject.configuration.silence_ready = false
-      subject.configuration.environments = ["production"]
-      expect(subject.logger).to receive(:info).with(
-        "Raven #{Raven::VERSION} configured not to capture errors: Not configured to send/capture in environment 'default'"
-      )
-      subject.report_status
-    end
-
-    it 'logs nothing if "silence_ready" configuration is true' do
-      subject.configuration.silence_ready = true
-      expect(subject.logger).not_to receive(:info)
-      subject.report_status
+    context "when current environment is not included in environments" do
+      it "doesn't log any message" do
+        subject.configuration.silence_ready = false
+        subject.configuration.environments = ["production"]
+        expect(subject.logger).not_to receive(:info)
+        subject.report_status
+      end
     end
   end
 
@@ -239,6 +253,14 @@ RSpec.describe Raven::Instance do
       subject.context.tags = default
     end
 
+    it "returns the tags" do
+      expect(subject.tags_context).to eq default
+    end
+
+    it "returns the tags" do
+      expect(subject.tags_context(additional)).to eq default.merge(additional)
+    end
+
     it "doesn't set anything if the tags is empty" do
       subject.tags_context({})
       expect(subject.context.tags).to eq default
@@ -250,6 +272,13 @@ RSpec.describe Raven::Instance do
     end
 
     context 'when block given' do
+      it "returns the tags" do
+        tags = subject.tags_context(additional) do
+          # do nothing
+        end
+        expect(tags).to eq default
+      end
+
       it "adds tags only in the block" do
         subject.tags_context(additional) do
           expect(subject.context.tags).to eq default.merge(additional)
@@ -267,6 +296,14 @@ RSpec.describe Raven::Instance do
       subject.context.extra = default
     end
 
+    it "returns the extra" do
+      expect(subject.extra_context).to eq default
+    end
+
+    it "returns the extra" do
+      expect(subject.extra_context(additional)).to eq default.merge(additional)
+    end
+
     it "doesn't set anything if the extra is empty" do
       subject.extra_context({})
       expect(subject.context.extra).to eq default
@@ -278,6 +315,13 @@ RSpec.describe Raven::Instance do
     end
 
     context 'when block given' do
+      it "returns the extra" do
+        extra = subject.extra_context(additional) do
+          # do nothing
+        end
+        expect(extra).to eq default
+      end
+
       it "adds extra only in the block" do
         subject.extra_context(additional) do
           expect(subject.context.extra).to eq default.merge(additional)

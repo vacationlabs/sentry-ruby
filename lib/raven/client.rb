@@ -1,14 +1,17 @@
 # frozen_string_literal: true
+
 require 'base64'
 require 'json'
 require 'zlib'
 
+require "raven/transports"
+
 module Raven
   # Encodes events and sends them to the Sentry server.
   class Client
-    PROTOCOL_VERSION = '5'.freeze
-    USER_AGENT = "raven-ruby/#{Raven::VERSION}".freeze
-    CONTENT_TYPE = 'application/json'.freeze
+    PROTOCOL_VERSION = '5'
+    USER_AGENT = "raven-ruby/#{Raven::VERSION}"
+    CONTENT_TYPE = 'application/json'
 
     attr_accessor :configuration
 
@@ -35,7 +38,8 @@ module Raven
         return
       end
 
-      configuration.logger.info "Sending event #{event[:event_id]} to Sentry"
+      event_id = event[:event_id] || event['event_id']
+      configuration.logger.info "Sending event #{event_id} to Sentry"
 
       content_type, encoded_data = encode(event)
 
@@ -80,13 +84,19 @@ module Raven
     end
 
     def get_message_from_exception(event)
-      (event && event[:exception][:values][0][:type] &&
-      event[:exception][:values][0][:value] &&
-      "#{event[:exception][:values][0][:type]}: #{event[:exception][:values][0][:value]}")
+      (
+        event &&
+        event[:exception] &&
+        event[:exception][:values] &&
+        event[:exception][:values][0] &&
+        event[:exception][:values][0][:type] &&
+        event[:exception][:values][0][:value] &&
+        "#{event[:exception][:values][0][:type]}: #{event[:exception][:values][0][:value]}"
+      )
     end
 
     def get_log_message(event)
-      (event && event[:message]) || get_message_from_exception(event) || '<no message value>'
+      (event && event[:message]) || (event && event['message']) || get_message_from_exception(event) || '<no message value>'
     end
 
     def generate_auth_header
@@ -113,7 +123,9 @@ module Raven
         configuration.logger.warn "Not sending event due to previous failure(s)."
       end
       configuration.logger.warn("Failed to submit event: #{get_log_message(event)}")
-      configuration.transport_failure_callback.call(event) if configuration.transport_failure_callback
+
+      # configuration.transport_failure_callback can be false & nil
+      configuration.transport_failure_callback.call(event, e) if configuration.transport_failure_callback # rubocop:disable Style/SafeNavigation
     end
   end
 

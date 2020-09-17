@@ -8,7 +8,8 @@
 # Raven-Ruby, the Ruby Client for Sentry
 
 [![Gem Version](https://img.shields.io/gem/v/sentry-raven.svg)](https://rubygems.org/gems/sentry-raven)
-[![Build Status](https://img.shields.io/travis/getsentry/raven-ruby/master.svg)](https://travis-ci.org/getsentry/raven-ruby)
+![Build Status](https://github.com/getsentry/raven-ruby/workflows/Test/badge.svg)
+[![Coverage Status](https://img.shields.io/codecov/c/github/getsentry/raven-ruby/master?logo=codecov)](https://codecov.io/gh/getsentry/raven-ruby/branch/master)
 [![Gem](https://img.shields.io/gem/dt/sentry-raven.svg)](https://rubygems.org/gems/sentry-raven/)
 [![SemVer](https://api.dependabot.com/badges/compatibility_score?dependency-name=sentry-raven&package-manager=bundler&version-scheme=semver)](https://dependabot.com/compatibility-score.html?dependency-name=sentry-raven&package-manager=bundler&version-scheme=semver)
 
@@ -19,7 +20,7 @@ The official Ruby-language client and integration layer for the [Sentry](https:/
 
 ## Requirements
 
-We test on Ruby 1.9, 2.2, 2.3, and 2.4 at the latest patchlevel/teeny version. We also support JRuby 1.7 and 9.0. Our Rails integration works with Rails 4.2+ (including Rails 5).
+We test on Ruby 2.3, 2.4, 2.5, 2.6 and 2.7 at the latest patchlevel/teeny version. We also support JRuby 9.0. Our Rails integration works with Rails 4.2+, including Rails 5 and Rails 6.
 
 ## Getting Started
 
@@ -29,7 +30,7 @@ We test on Ruby 1.9, 2.2, 2.3, and 2.4 at the latest patchlevel/teeny version. W
 gem "sentry-raven"
 ```
 
-### Raven only runs when SENTRY_DSN is set
+### Raven only runs when Sentry DSN is set
 
 Raven will capture and send exceptions to the Sentry server whenever its DSN is set. This makes environment-based configuration easy - if you don't want to send errors in a certain environment, just don't set the DSN in that environment!
 
@@ -38,7 +39,7 @@ Raven will capture and send exceptions to the Sentry server whenever its DSN is 
 export SENTRY_DSN=http://public@example.com/project-id
 ```
 ```ruby
-# Or you can configure the client in the code (not recommended - keep your DSN secret!)
+# Or you can configure the client in the code.
 Raven.configure do |config|
   config.dsn = 'http://public@example.com/project-id'
 end
@@ -48,11 +49,11 @@ end
 
 **Raven ignores some exceptions by default** - most of these are related to 404s or controller actions not being found. [For a complete list, see the `IGNORE_DEFAULT` constant](https://github.com/getsentry/raven-ruby/blob/master/lib/raven/configuration.rb).
 
-Raven doesn't report POST data or cookies by default. In addition, it will attempt to remove any obviously sensitive data, such as credit card or Social Security numbers. For more information about how Sentry processes your data, [check out the documentation on the `processors` config setting.](https://docs.getsentry.com/hosted/clients/ruby/config/)
+Raven doesn't report POST data or cookies by default. In addition, it will attempt to remove any obviously sensitive data, such as credit card or Social Security numbers. For more information about how Sentry processes your data, [check out the documentation on the `processors` config setting.](https://docs.sentry.io/platforms/ruby/config/)
 
 ### Usage
 
-**If you use Rails, you're already done - no more configuration required!** Check [Integrations](https://docs.getsentry.com/hosted/clients/ruby/integrations/) for more details on other gems Sentry integrates with automatically.
+**If you use Rails, you're already done - no more configuration required!** Check [Integrations](https://docs.sentry.io/platforms/ruby/integrations/) for more details on other gems Sentry integrates with automatically.
 
 Otherwise, Raven supports two methods of capturing exceptions:
 
@@ -104,26 +105,35 @@ end
 If Raven fails to send an event to Sentry for any reason (either the Sentry server has returned a 4XX or 5XX response), this Proc or lambda will be called.
 
 ```ruby
-config.transport_failure_callback = lambda { |event|
-  AdminMailer.email_admins("Oh god, it's on fire!", event).deliver_later
+config.transport_failure_callback = lambda { |event, error|
+  AdminMailer.email_admins("Oh god, it's on fire because #{error.message}!", event).deliver_later
 }
 ```
 
 #### Context
 
-Much of the usefulness of Sentry comes from additional context data with the events. Raven makes this very convenient by providing methods to set thread local context data that is then submitted automatically with all events.
-
-There are three primary methods for providing request context:
+Much of the usefulness of Sentry comes from additional context data with the events. Raven makes this very convenient by providing methods to set thread local context data that is then submitted automatically with all events:
 
 ```ruby
-# bind the logged in user
 Raven.user_context email: 'foo@example.com'
 
-# tag the request with something interesting
-Raven.tags_context interesting: 'yes'
+Raven.tags.merge!(interesting: 'yes')
 
-# provide a bit of additional context
-Raven.extra_context happiness: 'very'
+Raven.extra.merge!(additional_info: 'foo')
+```
+
+You can also use `tags_context` and `extra_context` to provide scoped information:
+
+```ruby
+Raven.tags_context(interesting: 'yes') do
+  # the `interesting: 'yes'` tag will only present in the requests sent inside the block
+  Raven.capture_exception(exception)
+end
+
+Raven.extra_context(additional_info: 'foo') do
+  # same as above, the `additional_info` will only present in this request
+  Raven.capture_exception(exception)
+end
 ```
 
 For more information, see [Context](https://docs.sentry.io/clients/ruby/context/).
@@ -133,4 +143,4 @@ For more information, see [Context](https://docs.sentry.io/clients/ruby/context/
 * [Documentation](https://docs.sentry.io/clients/ruby/)
 * [Bug Tracker](https://github.com/getsentry/raven-ruby/issues)
 * [Forum](https://forum.sentry.io/)
-* [IRC](irc://irc.freenode.net/sentry>)  (irc.freenode.net, #sentry)
+- [Discord](https://discord.gg/ez5KZN7)

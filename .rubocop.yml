@@ -7,11 +7,14 @@ AllCops:
      - 'vendor/**/*'
 
 Metrics/ClassLength:
-  Max: 300
+  Max: 350
   CountComments: false
 
 Metrics/AbcSize:
   Max: 40
+
+Metrics/BlockLength:
+  Enabled: false
 
 Metrics/CyclomaticComplexity:
   Max: 12
@@ -19,19 +22,25 @@ Metrics/CyclomaticComplexity:
 Metrics/PerceivedComplexity:
   Max: 11
 
-Metrics/LineLength:
-  Max: 155
-
 Metrics/MethodLength:
-  Max: 30
+  Max: 40
+
+Style/SymbolArray:
+  Enabled: false
+
+Style/PercentLiteralDelimiters:
+  Enabled: false
+
+Style/FrozenStringLiteralComment:
+  Enabled: false
 
 Style/SignalException:
   Enabled: false
 
-Performance/Casecmp:
+Style/ClassAndModuleChildren:
   Enabled: false
 
-Style/ClassAndModuleChildren:
+Style/RescueStandardError:
   Enabled: false
 
 Style/ParallelAssignment:
@@ -40,7 +49,13 @@ Style/ParallelAssignment:
 Style/Documentation:
   Enabled: false
 
+Style/CommentedKeyword:
+  Enabled: false
+
 Style/RescueModifier:
+  Enabled: false
+
+Style/RegexpLiteral:
   Enabled: false
 
 Style/StringLiterals:
@@ -52,17 +67,21 @@ Style/CaseEquality:
 Style/DoubleNegation:
   Enabled: false
 
-Style/FileName:
-  Exclude:
-    - 'lib/sentry-raven-without-integrations.rb'
-    - 'lib/sentry-raven.rb'
+Style/GuardClause:
+  Enabled: false
+
+Style/RedundantBegin:
+  Enabled: false
 
 Style/NumericLiterals:
   Exclude:
     - 'spec/raven/processors/sanitizedata_processor_spec.rb'
 
 Style/HashSyntax:
-  EnforcedStyle: hash_rockets
+  Enabled: false
+
+Style/IfUnlessModifier:
+  Enabled: false
 
 Lint/RescueException:
   Exclude:
@@ -72,3 +91,22 @@ Lint/RescueException:
     - 'lib/raven/integrations/rack.rb'
     - 'lib/raven/integrations/sidekiq.rb'
     - 'spec/raven/event_spec.rb'
+
+Lint/SuppressedException:
+  Enabled: false
+
+Lint/AssignmentInCondition:
+  Enabled: false
+
+Layout/LineLength:
+  Max: 155
+
+Naming/FileName:
+  Exclude:
+    - 'lib/sentry-raven-without-integrations.rb'
+    - 'lib/sentry-raven.rb'
+    - 'lib/raven/integrations/rack-timeout.rb'
+
+Naming/MethodParameterName:
+  Enabled: false
+

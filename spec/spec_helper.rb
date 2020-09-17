@@ -1,6 +1,13 @@
-require 'sentry-raven-without-integrations'
-require 'raven/transports/dummy'
-require 'raven/transports/stdout'
+require 'sentry_raven_without_integrations'
+require 'pry'
+
+require 'simplecov'
+SimpleCov.start
+
+if ENV["CI"]
+  require 'codecov'
+  SimpleCov.formatter = SimpleCov::Formatter::Codecov
+end
 
 Raven.configure do |config|
   config.dsn = "dummy://12345:67890@sentry.localdomain/sentry/42"
@@ -39,8 +46,8 @@ end
 
 def build_exception
   1 / 0
-rescue ZeroDivisionError => exception
-  return exception
+rescue ZeroDivisionError => e
+  e
 end
 
 def build_exception_with_cause(cause = "exception a")
@@ -49,8 +56,8 @@ def build_exception_with_cause(cause = "exception a")
   rescue
     raise "exception b"
   end
-rescue RuntimeError => exception
-  return exception
+rescue RuntimeError => e
+  e
 end
 
 def build_exception_with_two_causes
@@ -63,8 +70,8 @@ def build_exception_with_two_causes
   rescue
     raise "exception c"
   end
-rescue RuntimeError => exception
-  return exception
+rescue RuntimeError => e
+  e
 end
 
 def build_exception_with_recursive_cause

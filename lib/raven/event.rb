@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+
 require 'socket'
 require 'securerandom'
 
@@ -7,6 +8,7 @@ module Raven
     # See Sentry server default limits at
     # https://github.com/getsentry/sentry/blob/master/src/sentry/conf/server.py
     MAX_MESSAGE_SIZE_IN_BYTES = 1024 * 8
+    REQUIRED_OPTION_KEYS = [:configuration, :context, :breadcrumbs].freeze
 
     SDK = { "name" => "raven-ruby", "version" => Raven::VERSION }.freeze
 
@@ -18,7 +20,7 @@ module Raven
 
     attr_reader :level, :timestamp, :time_spent
 
-    def initialize(init = {})
+    def initialize(options)
       # Set some simple default values
       self.id            = SecureRandom.uuid.delete("-")
       self.timestamp     = Time.now.utc
@@ -35,11 +37,17 @@ module Raven
       self.runtime       = {} # TODO: contexts
       self.tags          = {} # TODO: contexts
 
-      copy_initial_state
+      unless REQUIRED_OPTION_KEYS.all? { |key| options.key?(key) }
+        raise "you much provide configuration, context, and breadcrumbs when initializing a Raven::Event"
+      end
+
+      self.configuration = options[:configuration]
+      self.context       = options[:context]
+      self.breadcrumbs   = options[:breadcrumbs]
 
       # Allow attributes to be set on the event at initialization
       yield self if block_given?
-      init.each_pair { |key, val| public_send("#{key}=", val) unless val.nil? }
+      options.each_pair { |key, val| public_send("#{key}=", val) unless val.nil? }
 
       set_core_attributes_from_configuration
       set_core_attributes_from_context
@@ -55,8 +63,7 @@ module Raven
                           end
       options = Raven::Utils::DeepMergeHash.deep_merge(exception_context, options)
 
-      configuration = options[:configuration] || Raven.configuration
-      return unless configuration.exception_class_allowed?(exc)
+      return unless options[:configuration].exception_class_allowed?(exc)
 
       new(options) do |evt|
         evt.add_exception_interface(exc)
@@ -76,11 +83,21 @@ module Raven
     end
 
     def message
-      @interfaces[:logentry] && @interfaces[:logentry].unformatted_message
+      @interfaces[:logentry]&.unformatted_message
     end
 
     def message=(args)
-      message, params = *args
+      if args.is_a?(Array)
+        message, params = args[0], args[0..-1]
+      else
+        message = args
+      end
+
+      unless message.is_a?(String)
+        configuration.logger.debug("You're passing a non-string message")
+        message = message.to_s
+      end
+
       interface(:message) do |int|
         int.message = message.byteslice(0...MAX_MESSAGE_SIZE_IN_BYTES) # Messages limited to 10kb
         int.params = params
@@ -96,12 +113,13 @@ module Raven
     end
 
     def level=(new_level) # needed to meet the Sentry spec
-      @level = new_level == "warn" || new_level == :warn ? :warning : new_level
+      @level = new_level.to_s == "warn" ? :warning : new_level
     end
 
     def interface(name, value = nil, &block)
       int = Interface.registered[name]
       raise(Error, "Unknown interface: #{name}") unless int
+
       @interfaces[int.sentry_alias] = int.new(value, &block) if value || block
       @interfaces[int.sentry_alias]
     end
@@ -157,7 +175,7 @@ module Raven
     end
 
     def stacktrace_interface_from(backtrace)
-      Backtrace.parse(backtrace).lines.reverse.each_with_object([]) do |line, memo|
+      Backtrace.parse(backtrace, { configuration: configuration }).lines.reverse.each_with_object([]) do |line, memo|
         frame = StacktraceInterface::Frame.new
         frame.abs_path = line.file if line.file
         frame.function = line.method if line.method
@@ -183,12 +201,6 @@ module Raven
     end
 
     private
-
-    def copy_initial_state
-      self.configuration = Raven.configuration
-      self.breadcrumbs   = Raven.breadcrumbs
-      self.context       = Raven.context
-    end
 
     def set_core_attributes_from_configuration
       self.server_name ||= configuration.server_name
@@ -228,10 +240,7 @@ module Raven
     end
 
     def async_json_processors
-      [
-        Raven::Processor::RemoveCircularReferences,
-        Raven::Processor::UTF8Conversion
-      ].map { |v| v.new(self) }
+      configuration.processors.map { |v| v.new(self) }
     end
 
     def list_gem_specs

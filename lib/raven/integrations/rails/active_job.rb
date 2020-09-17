@@ -9,19 +9,23 @@ module Raven
       def self.included(base)
         base.class_eval do
           around_perform do |job, block|
-            capture_and_reraise_with_sentry(job, block)
+            if already_supported_by_specific_integration?(job)
+              block.call
+            else
+              capture_and_reraise_with_sentry(job, block)
+            end
           end
         end
       end
 
       def capture_and_reraise_with_sentry(job, block)
         block.call
-      rescue Exception => exception # rubocop:disable Lint/RescueException
-        return if rescue_with_handler(exception)
-        unless already_supported_by_specific_integration?(job)
-          Raven.capture_exception(exception, :extra => raven_context(job))
-        end
-        raise exception
+      rescue Exception => e # rubocop:disable Lint/RescueException
+        rescue_handler_result = rescue_with_handler(e)
+        return rescue_handler_result if rescue_handler_result
+
+        Raven.capture_exception(e, :extra => raven_context(job))
+        raise e
       ensure
         Context.clear!
         BreadcrumbBuffer.clear!

@@ -5,6 +5,8 @@ module Raven
     require 'raven/integrations/rails/overrides/streaming_reporter'
     require 'raven/integrations/rails/controller_methods'
     require 'raven/integrations/rails/controller_transaction'
+    require 'raven/integrations/rails/backtrace_cleaner'
+    require 'raven/integrations/rack'
 
     initializer "raven.use_rack_middleware" do |app|
       app.config.middleware.insert 0, Raven::Rack
@@ -36,12 +38,20 @@ module Raven
 
     config.before_initialize do
       Raven.configuration.logger = ::Rails.logger
+
+      backtrace_cleaner = Raven::Rails::BacktraceCleaner.new
+
+      Raven.configuration.backtrace_cleanup_callback = lambda do |backtrace|
+        backtrace_cleaner.clean(backtrace)
+      end
     end
 
     config.after_initialize do
-      if Raven.configuration.rails_activesupport_breadcrumbs
-        require 'raven/breadcrumbs/activesupport'
-        Raven::ActiveSupportBreadcrumbs.inject
+      if Raven.configuration.breadcrumbs_logger.include?(:active_support_logger) ||
+         Raven.configuration.rails_activesupport_breadcrumbs
+
+        require 'raven/breadcrumbs/active_support_logger'
+        Raven::Breadcrumbs::ActiveSupportLogger.inject
       end
 
       if Raven.configuration.rails_report_rescued_exceptions

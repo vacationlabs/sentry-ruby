@@ -11,11 +11,11 @@ Gem::Specification.new do |gem|
 
   gem.version = Raven::VERSION
   gem.platform = Gem::Platform::RUBY
-  gem.required_ruby_version = '>= 1.9.0'
+  gem.required_ruby_version = '>= 2.3'
   gem.extra_rdoc_files = ["README.md", "LICENSE"]
   gem.files = `git ls-files | grep -Ev '^(spec|benchmarks|examples)'`.split("\n")
   gem.bindir = "exe"
   gem.executables = "raven"
 
-  gem.add_dependency "faraday", ">= 0.7.6", "< 1.0"
+  gem.add_dependency "faraday", ">= 1.0"
 end

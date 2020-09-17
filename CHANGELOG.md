@@ -1,3 +1,76 @@
+# Changelog
+
+## Unreleased
+
+- FEATURE: Exclude all 4xx Rails errors ([#1004](https://github.com/getsentry/raven-ruby/pull/1004))
+- FEATURE: Add some error context in transport_failure_callback ([#1003](https://github.com/getsentry/raven-ruby/pull/1003))
+- FEATURE: Support cleaning up exception backtrace with customized backtrace_cleaner ([#1011](https://github.com/getsentry/raven-ruby/pull/1011))
+- FEATURE: Make dsn value accessable from config ([#1012](https://github.com/getsentry/raven-ruby/pull/1012))
+- REFACTOR: Deprecate dasherized filenames ([#1006](https://github.com/getsentry/raven-ruby/pull/1006))
+- REFACTOR: Accept non-string message in Event.from_exception ([#1005](https://github.com/getsentry/raven-ruby/pull/1005))
+- REFACTOR: Refactor event initialization ([#1010](https://github.com/getsentry/raven-ruby/pull/1010))
+- REFACTOR: Refactor sidekiq integration ([#1019](https://github.com/getsentry/raven-ruby/pull/1019))
+- REFACTOR: Unify breadcrumb loggers activation ([#1016](https://github.com/getsentry/raven-ruby/pull/1016))
+- FIX: Replace sys_command usages in context.rb ([#1017](https://github.com/getsentry/raven-ruby/pull/1017))
+- FIX: Fix merge error from rack-timeout raven_context on old releases ([#1007](https://github.com/getsentry/raven-ruby/pull/1007))
+- FIX: Return value of `rescue_with_handler` when intercepting ActiveJob exceptions ([#1027](https://github.com/getsentry/raven-ruby/pull/1027))
+
+## 3.0.4
+
+- fix: Don't log warning messages when it doesn't need to (#1000)
+- fix: Revert "Refactor Raven::Client class" (#1002)
+
+## 3.0.3
+
+- fix: Ensure Processor::Cookie can run after Processor::RemoveCircularReferences (#996)
+- fix: Avoid mutating user passed in options (#994)
+- fix: Fix/Refactor Raven::Cli (#989)
+- ref: Refactor Raven::Client class (#995)
+  - It adds `Event#message_from_exception` and `Event#log_message` interfaces
+
+## 3.0.2
+
+- fix: Add gem target for craft
+
+## 3.0.1
+
+- fix: Improve SanitizeData processor (#984)
+- fix: Masking cookies as key/pair instead of a single string (#983)
+- fix: Transports classes' requiring issue (#986)
+- fix: Frozen string issues (#977)
+- feat: Officially support Rails 6 (#982)
+
+3.0.0
+----
+
+* SDK now requires Ruby >= 2.3
+* REF: Retain any literal "HTTP-" in header names [@elliterate, #950]
+* REF: Delete JSON spec for recursive hashes [@ksylvest, #952]
+* FEAT: Bump faraday version to latest [@ksylvest, #946] 
+
+2.13.0
+----
+
+* FIX: Sanitize event data before they are sent to async job. [@edariedl, #895]
+* FIX: Serialization MongoDB ObjectId to JSON problem with gem delayed_job_mongoid conjunction. [@eagleas, #935]
+* FEAT: Skip ActiveJob integration if there is a better one [@fsateler, #909]
+* FIX: Bugs with send_event in asynchronous mode (#940) [@cstyles, #940]
+
+2.12.3
+----
+
+* FIX: crash when Process.wait is used [@asBrettisay, #895]
+
+2.12.2
+----
+
+* FIX: return tags/extra for [@rivayama, #931]
+
+2.12.1
+----
+
+* FIX: undefined method `[]' for nil:NilClass [@HazAT, #932]
+
 2.12.0
 ----
 
@@ -452,7 +525,7 @@ OTHER CHANGES:
 0.12.0
 ------
 
-- You can now give additional fields to the SanitizeData processor. Values matched are replaced by the string mask (*********). Full documentation (and how to use with Rails config.filter_parameters) [here](https://docs.getsentry.com/hosted/clients/ruby/config/). [jamescway, #232]
+- You can now give additional fields to the SanitizeData processor. Values matched are replaced by the string mask (*********). Full documentation (and how to use with Rails config.filter_parameters) [here](https://docs.sentry.io/platforms/ruby/config/). [jamescway, #232]
 - An additional processor has been added, though it isn't turned on by default: RemoveStacktrace. Use it to remove stacktraces from exception reports. [nateberkopec, #233]
 - Dependency on `uuidtools` has been removed. [nateberkopec, #231]
 

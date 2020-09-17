@@ -1,5 +1,6 @@
 coverage
 pkg
+tmp
 ruby/
 log/
 .bundle
@@ -11,3 +12,5 @@ Gemfile.lock
 .ruby-gemset
 .idea
 *.rdb
+
+examples/**/node_modules

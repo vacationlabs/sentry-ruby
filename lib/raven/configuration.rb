@@ -12,6 +12,11 @@ module Raven
     attr_reader :async
     alias async? async
 
+    # An array of breadcrumbs loggers to be used. Available options are:
+    # - :sentry_logger
+    # - :active_support_logger
+    attr_reader :breadcrumbs_logger
+
     # Number of lines of code context to capture, or nil for none
     attr_accessor :context_lines
 
@@ -83,7 +88,7 @@ module Raven
     attr_accessor :public_key
 
     # Turns on ActiveSupport breadcrumbs integration
-    attr_accessor :rails_activesupport_breadcrumbs
+    attr_reader :rails_activesupport_breadcrumbs
 
     # Rails catches exceptions in the ActionDispatch::ShowExceptions or
     # ActionDispatch::DebugExceptions middlewares, depending on the environment.
@@ -117,6 +122,19 @@ module Raven
     # DSN component - set automatically if DSN provided.
     # Otherwise, can be one of "http", "https", or "dummy"
     attr_accessor :scheme
+
+    # a proc/lambda that takes an array of stack traces
+    # it'll be used to silence (reduce) backtrace of the exception
+    #
+    # for example:
+    #
+    # ```ruby
+    # Raven.configuration.backtrace_cleanup_callback = lambda do |backtrace|
+    #   Rails.backtrace_cleaner.clean(backtrace)
+    # end
+    # ```
+    #
+    attr_accessor :backtrace_cleanup_callback
 
     # Secret key for authentication with the Sentry server
     # If you provide a DSN, this will be set automatically.
@@ -172,16 +190,32 @@ module Raven
     # Errors object - an Array that contains error messages. See #
     attr_reader :errors
 
+    # the dsn value, whether it's set via `config.dsn=` or `ENV["SENTRY_DSN"]`
+    attr_reader :dsn
+
+    # Most of these errors generate 4XX responses. In general, Sentry clients
+    # only automatically report 5xx responses.
     IGNORE_DEFAULT = [
       'AbstractController::ActionNotFound',
+      'ActionController::BadRequest',
       'ActionController::InvalidAuthenticityToken',
+      'ActionController::InvalidCrossOriginRequest',
+      'ActionController::MethodNotAllowed',
+      'ActionController::NotImplemented',
+      'ActionController::ParameterMissing',
       'ActionController::RoutingError',
       'ActionController::UnknownAction',
+      'ActionController::UnknownFormat',
+      'ActionController::UnknownHttpMethod',
+      'ActionDispatch::Http::Parameters::ParseError',
+      'ActionView::MissingTemplate',
+      'ActiveJob::DeserializationError', # Can cause infinite loops
       'ActiveRecord::RecordNotFound',
       'CGI::Session::CookieStore::TamperedWithCookie',
       'Mongoid::Errors::DocumentNotFound',
-      'Sinatra::NotFound',
-      'ActiveJob::DeserializationError'
+      'Rack::QueryParser::InvalidParameterError',
+      'Rack::QueryParser::ParameterTypeError',
+      'Sinatra::NotFound'
     ].freeze
 
     # Note the order - we have to remove circular references and bad characters
@@ -201,8 +235,11 @@ module Raven
     LOG_PREFIX = "** [Raven] ".freeze
     MODULE_SEPARATOR = "::".freeze
 
+    AVAILABLE_BREADCRUMBS_LOGGERS = [:sentry_logger, :active_support_logger].freeze
+
     def initialize
       self.async = false
+      self.breadcrumbs_logger = []
       self.context_lines = 3
       self.current_environment = current_environment_from_env
       self.encoding = 'gzip'
@@ -215,7 +252,8 @@ module Raven
       self.open_timeout = 1
       self.processors = DEFAULT_PROCESSORS.dup
       self.project_root = detect_project_root
-      self.rails_activesupport_breadcrumbs = false
+      @rails_activesupport_breadcrumbs = false
+
       self.rails_report_rescued_exceptions = true
       self.release = detect_release
       self.sample_rate = 1.0
@@ -236,6 +274,9 @@ module Raven
 
     def server=(value)
       return if value.nil?
+
+      @dsn = value
+
       uri = URI.parse(value)
       uri_path = uri.path.split('/')
 
@@ -253,13 +294,14 @@ module Raven
 
       # For anyone who wants to read the base server string
       @server = "#{scheme}://#{host}"
-      @server << ":#{port}" unless port == { 'http' => 80, 'https' => 443 }[scheme]
-      @server << path
+      @server += ":#{port}" unless port == { 'http' => 80, 'https' => 443 }[scheme]
+      @server += path
     end
     alias dsn= server=
 
     def encoding=(encoding)
       raise(Error, 'Unsupported encoding') unless %w(gzip json).include? encoding
+
       @encoding = encoding
     end
 
@@ -267,13 +309,32 @@ module Raven
       unless value == false || value.respond_to?(:call)
         raise(ArgumentError, "async must be callable (or false to disable)")
       end
+
       @async = value
+    end
+
+    def breadcrumbs_logger=(logger)
+      loggers =
+        if logger.is_a?(Array)
+          logger
+        else
+          unless AVAILABLE_BREADCRUMBS_LOGGERS.include?(logger)
+            raise Raven::Error, "Unsupported breadcrumbs logger. Supported loggers: #{AVAILABLE_BREADCRUMBS_LOGGERS}"
+          end
+
+          Array(logger)
+        end
+
+      require "raven/breadcrumbs/sentry_logger" if loggers.include?(:sentry_logger)
+
+      @breadcrumbs_logger = logger
     end
 
     def transport_failure_callback=(value)
       unless value == false || value.respond_to?(:call)
         raise(ArgumentError, "transport_failure_callback must be callable (or false to disable)")
       end
+
       @transport_failure_callback = value
     end
 
@@ -281,6 +342,7 @@ module Raven
       unless value == false || value.respond_to?(:call)
         raise ArgumentError, "should_capture must be callable (or false to disable)"
       end
+
       @should_capture = value
     end
 
@@ -288,6 +350,7 @@ module Raven
       unless value == false || value.respond_to?(:call)
         raise ArgumentError, "before_send must be callable (or false to disable)"
       end
+
       @before_send = value
     end
 
@@ -323,6 +386,11 @@ module Raven
       Backtrace::Line.instance_variable_set(:@in_app_pattern, nil) # blow away cache
     end
 
+    def rails_activesupport_breadcrumbs=(val)
+      DeprecationHelper.deprecate_old_breadcrumbs_configuration(:active_support_logger)
+      @rails_activesupport_breadcrumbs = val
+    end
+
     def exception_class_allowed?(exc)
       if exc.is_a?(Raven::Error)
         # Try to prevent error reporting loops
@@ -334,6 +402,10 @@ module Raven
       else
         true
       end
+    end
+
+    def enabled_in_current_env?
+      environments.empty? || environments.include?(current_environment)
     end
 
     private
@@ -351,8 +423,8 @@ module Raven
         detect_release_from_git ||
         detect_release_from_capistrano ||
         detect_release_from_heroku
-    rescue => ex
-      logger.error "Error detecting release: #{ex.message}"
+    rescue => e
+      logger.error "Error detecting release: #{e.message}"
     end
 
     def excluded_exception?(incoming_exception)
@@ -417,19 +489,22 @@ module Raven
     end
 
     def capture_in_current_environment?
-      return true unless environments.any? && !environments.include?(current_environment)
+      return true if enabled_in_current_env?
+
       @errors << "Not configured to send/capture in environment '#{current_environment}'"
       false
     end
 
     def capture_allowed_by_callback?(message_or_exc)
-      return true if !should_capture || message_or_exc.nil? || should_capture.call(*[message_or_exc])
+      return true if !should_capture || message_or_exc.nil? || should_capture.call(message_or_exc)
+
       @errors << "should_capture returned false"
       false
     end
 
     def valid?
       return true if %w(server host path public_key project_id).all? { |k| public_send(k) }
+
       if server
         %w(server host path public_key project_id).map do |key|
           @errors << "No #{key} specified" unless public_send(key)
@@ -442,6 +517,7 @@ module Raven
 
     def sample_allowed?
       return true if sample_rate == 1.0
+
       if Random::DEFAULT.rand >= sample_rate
         @errors << "Excluded by random sample"
         false

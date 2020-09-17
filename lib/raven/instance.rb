@@ -50,7 +50,9 @@ module Raven
 
     # Tell the log that the client is good to go
     def report_status
+      return unless configuration.enabled_in_current_env?
       return if configuration.silence_ready
+
       if configuration.capture_allowed?
         logger.info "Raven #{VERSION} ready to catch errors"
       else
@@ -75,7 +77,7 @@ module Raven
     # Send an event to the configured Sentry server
     #
     # @example
-    #   evt = Raven::Event.new(:message => "An error")
+    #   evt = Raven::Event.new(:message => "An errore)
     #   Raven.send_event(evt)
     def send_event(event, hint = nil)
       client.send_event(event, hint)
@@ -109,17 +111,20 @@ module Raven
       end
 
       message_or_exc = obj.is_a?(String) ? "message" : "exception"
+      options = options.deep_dup
       options[:configuration] = configuration
       options[:context] = context
-      if (evt = Event.send("from_" + message_or_exc, obj, options))
+      options[:breadcrumbs] = breadcrumbs
+
+      if evt = Event.send("from_" + message_or_exc, obj, options)
         yield evt if block_given?
         if configuration.async?
           begin
             # We have to convert to a JSON-like hash, because background job
             # processors (esp ActiveJob) may not like weird types in the event hash
             configuration.async.call(evt.to_json_compatible)
-          rescue => ex
-            logger.error("async event sending failed: #{ex.message}")
+          rescue => e
+            logger.error("async event sending failed: #{e.message}")
             send_event(evt, make_hint(obj))
           end
         else
@@ -184,6 +189,7 @@ module Raven
     def tags_context(options = nil)
       context.tags.merge!(options || {})
       yield if block_given?
+      context.tags
     ensure
       context.tags.delete_if { |k, _| options.keys.include? k } if block_given?
     end
@@ -198,6 +204,7 @@ module Raven
     def extra_context(options = nil)
       context.extra.merge!(options || {})
       yield if block_given?
+      context.extra
     ensure
       context.extra.delete_if { |k, _| options.keys.include? k } if block_given?
     end
