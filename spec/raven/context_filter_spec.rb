@@ -8,11 +8,11 @@ RSpec.describe Raven::ContextFilter do
       { :_aj_globalid => "gid://app/model/id", :key => "value" }
     end
     let(:expected_context) do
-      { :key => "value" }
+      { "_globalid" => "gid://app/model/id", :key => "value" }
     end
 
     it "removes reserved keys" do
-      new_context = described_class.filter(context)
+      new_context = described_class.filter_context(context)
 
       expect(new_context).to eq(expected_context)
     end
@@ -27,12 +27,13 @@ RSpec.describe Raven::ContextFilter do
     end
     let(:expected_context) do
       {
-        :arguments => { "key" => "value" }
+        "_globalid" => "gid://app/model/id",
+        :arguments => { "key" => "value", "_symbol_keys" => ["key"] }
       }
     end
 
     it "removes reserved keys" do
-      new_context = described_class.filter(context)
+      new_context = described_class.filter_context(context)
 
       expect(new_context).to eq(expected_context)
     end

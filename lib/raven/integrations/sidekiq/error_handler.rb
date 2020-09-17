@@ -1,4 +1,4 @@
-require 'raven/integrations/sidekiq/context_filter'
+require 'raven/context_filter'
 
 module Raven
   module Sidekiq
