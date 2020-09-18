@@ -16,7 +16,7 @@ module Raven
           when Array
             context.map { |arg| filter_context(arg) }
           when Hash
-            Hash[context.map { |key, value| filter_context_hash(key.to_s, value) }]
+            Hash[context.map { |key, value| filter_context_hash(key, value) }]
           else
             format_globalid(context)
           end
@@ -25,7 +25,7 @@ module Raven
         private
 
         def filter_context_hash(key, value)
-          key = key.sub(ACTIVEJOB_RESERVED_PREFIX_REGEX, "") if key.match(ACTIVEJOB_RESERVED_PREFIX_REGEX)
+          key = key.to_s.sub(ACTIVEJOB_RESERVED_PREFIX_REGEX, "") if key.match(ACTIVEJOB_RESERVED_PREFIX_REGEX)
           [key, filter_context(value)]
         end
 
