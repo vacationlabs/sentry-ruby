@@ -25,7 +25,7 @@ module Raven
         private
 
         def filter_context_hash(key, value)
-          key = key.sub(ACTIVEJOB_RESERVED_PREFIX_REGEX, "") if key.match?(ACTIVEJOB_RESERVED_PREFIX_REGEX)
+          key = key.sub(ACTIVEJOB_RESERVED_PREFIX_REGEX, "") if key.match(ACTIVEJOB_RESERVED_PREFIX_REGEX)
           [key, filter_context(value)]
         end
 
