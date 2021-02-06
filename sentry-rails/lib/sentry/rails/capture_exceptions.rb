@@ -4,7 +4,7 @@ module Sentry
       def initialize(app)
         super
 
-        if defined?(::Sprockets::Rails)
+        if defined?(::Sprockets)
           @assets_regex = %r(\A/{0,2}#{::Rails.application.config.assets.prefix})
         end
       end
